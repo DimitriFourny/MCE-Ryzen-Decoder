@@ -1,10 +1,11 @@
 # MCE-Ryzen-Decoder
 ## Description
 
-MCE Ryzen Decoder for AMD 17h (23) family.
-$ cat /proc/cpuinfo | grep family
-
+MCE Ryzen Decoder for AMD 17h (23) family.  
 Developed by Dimitri Fourny.
+
+    $ cat /proc/cpuinfo | grep family
+    cpu family	: 23
 
 
 ## Usage
