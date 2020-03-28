@@ -9,16 +9,16 @@ Developed by Dimitri Fourny.
 
 From the documentation:
     1.  Read the values of this bank's MCA_IPID and MCA_STATUS registers.
-    2.  Use 3.17.3 [Hardware IDs and McaType] to look up the block associated with the values of MCA_IPID[HwId] 
+    2.  Use 3.17.3 [Hardware IDs and McaType] to look up the block associated with the values of MCA_IPID[HwId]
     and MCA_IPID[McaType].
     3.  In 3.17.4 [MCA Banks], find the sub-section associated with the block in error.
-    4.  In this sub-section, find the MCA_STATUS table. 
-    5.  In the table, look up the row associated with the MCA_STATUS[ErrorCodeExt] value. 
+    4.  In this sub-section, find the MCA_STATUS table.
+    5.  In the table, look up the row associated with the MCA_STATUS[ErrorCodeExt] value.
     6.  The error type in this row is the logged error. The MCA_STATUS, MCA_ADDR and MCA_SYND tables contain
     information associated with this error.
-    7.  If there is an error in both MCA_STATUS and MCA_DESTAT, the registers contain the same error if 
-    MCA_STATUS[Deferred] is set. If MCA_STATUS[Deferred] is not set, MCA_DESTAT contains information for 
-    a different error than MCA_STATUS. MCA_DESTAT does not contain an ErrorCodeExt field, so in this case it is 
+    7.  If there is an error in both MCA_STATUS and MCA_DESTAT, the registers contain the same error if
+    MCA_STATUS[Deferred] is set. If MCA_STATUS[Deferred] is not set, MCA_DESTAT contains information for
+    a different error than MCA_STATUS. MCA_DESTAT does not contain an ErrorCodeExt field, so in this case it is
     not possible to determine the type of error logged in MCA_DESTAT
 '''
 
@@ -27,7 +27,7 @@ import sys
 
 class ErrorCodeExt:
     def __init__(self, code, acronym, description):
-        self.code = code 
+        self.code = code
         self.acronym = acronym
         self.description = description
 
@@ -41,7 +41,7 @@ class Block:
 
     def _extract_error_code_ext(self, status):
         mask = (1<<(self._pos_error_high))-1 & ~((1<<self._pos_error_low)-1)
-        return status & mask
+        return (mask & status) >> self._pos_error_low
 
     def decode_error(self, status):
         code = self._extract_error_code_ext(status)
@@ -54,7 +54,7 @@ class Block:
         return ErrorCodeExt(code, acronym, description)
 
     def __str__(self):
-        return "{} ({})".format(self._description, self._acronym) 
+        return "{} ({})".format(self._description, self._acronym)
 
 class BlockRAZ(Block):
     def __init__(self):
@@ -79,12 +79,13 @@ class BlockLS(Block):
         self._description = "Load-Store Unit"
         self._errors_acronyms = [
             "LDQ", "STQ", "MAB", "L1DTLB", "DcTagErr5", "DcTagErr6", "DcTagErr1",
-            "IntErrTyp1", "IntErrTyp2", "SystemReadDataErrorT0", "SystemReadDataErrorT1", 
-            "DcTagErr2", "DcDataErr1", "DcDataErr2", "DcDataErr3", "DcTagErr4", "L2DTLB", 
-            "PDC", "DcTagErr3", "DcTagErr5", "L2DataErr"
+            "IntErrTyp1", "IntErrTyp2", "SystemReadDataErrorT0", "SystemReadDataErrorT1",
+            "DcTagErr2", "DcDataErr1", "DcDataErr2", "DcDataErr3", "DcTagErr4", "L2DTLB",
+            "PDC", "DcTagErr3", "DcTagErr7", "L2DataErr"
         ]
         self._errors_descriptions = {
             "L2DataErr": "L2 Fill Data error",
+            "DcTagErr7": "DC Tag error type 7",
             "DcTagErr5": "DC Tag error type 5",
             "DcTagErr3": "DC Tag error type 3",
             "PDC": "MCA_ADDR_LS logs a virtual address",
@@ -112,8 +113,8 @@ class BlockIF(Block):
         self._acronym = "IF"
         self._description = "Instruction Fetch Unit"
         self._errors_acronyms = [
-            "OcUtagParity", "TagMultiHit","TagParity", "DataParity","DqParity", 
-            "L0ItlbParity", "L1ItlbParity", "L2ItlbParity", "BpqSnpParT0", "BpqSnpParT1", 
+            "OcUtagParity", "TagMultiHit","TagParity", "DataParity","DqParity",
+            "L0ItlbParity", "L1ItlbParity", "L2ItlbParity", "BpqSnpParT0", "BpqSnpParT1",
             "L1BtbMultiHit", "L2BtbMultiHit", "L2RespPoison", "SystemReadDataError"
         ]
         self._errors_descriptions = {
@@ -154,7 +155,7 @@ class BlockDE(Block):
         self._acronym = "DE"
         self._description = "Decode Unit"
         self._errors_acronyms = [
-            "OcTag", "OcDat", "Ibq", "UopQ", 
+            "OcTag", "OcDat", "Ibq", "UopQ",
             "Idq", "Faq", "UcDat", "UcSeq", "OCBQ"
         ]
         self._errors_descriptions = {
@@ -175,7 +176,7 @@ class BlockEX(Block):
         self._acronym = "EX"
         self._description = "Execution Unit"
         self._errors_acronyms = [
-            "WDT", "PRF", "FRF", "IDRF", "PLDAG", "PLDAL", 
+            "WDT", "PRF", "FRF", "IDRF", "PLDAG", "PLDAL",
             "CHKPTQ", "RETDISP", "STATQ", "SQ", "BBQ"
         ]
         self._errors_descriptions = {
@@ -198,7 +199,7 @@ class BlockFP(Block):
         self._acronym = "FP"
         self._description = "Floating Point Unit"
         self._errors_acronyms = [
-            "PRF", "FL", "SCH", 
+            "PRF", "FL", "SCH",
             "NSQ", "RQ", "SRF", "HWA"
         ]
         self._errors_descriptions = {
@@ -217,8 +218,8 @@ class BlockL3(Block):
         self._acronym = "EX"
         self._description = "L3 Cache Unit"
         self._errors_acronyms = [
-            "ShadowTag", "MultiHitShadowTag", "Tag", 
-            "MultiHitTag", "DataArray", "SdpParity", 
+            "ShadowTag", "MultiHitShadowTag", "Tag",
+            "MultiHitTag", "DataArray", "SdpParity",
             "XiVictimQueue", "Hwa"
         ]
         self._errors_descriptions = {
@@ -238,7 +239,7 @@ class BlockUMC(Block):
         self._acronym = "UMC"
         self._description = "Unified Memory Controller"
         self._errors_acronyms = [
-            "DramEccErr", "WriteDataPoisonErr", "SdpParityErr", 
+            "DramEccErr", "WriteDataPoisonErr", "SdpParityErr",
             "ApbErr", "AddressCommandParityErr", "WriteDataCrcErr"
         ]
         self._errors_descriptions = {
@@ -264,8 +265,8 @@ class BlockCS(Block):
         self._acronym = "CS"
         self._description = "Coherent Slave"
         self._errors_acronyms = [
-            "FTI_ILL_REQ", "FTI_ADDR_VIOL", "FTI_SEC_VIOL", 
-            "FTI_ILL_RSP", "FTI_RSP_NO_MTCH", "FTI_PAR_ERR", 
+            "FTI_ILL_REQ", "FTI_ADDR_VIOL", "FTI_SEC_VIOL",
+            "FTI_ILL_RSP", "FTI_RSP_NO_MTCH", "FTI_PAR_ERR",
             "SDP_PAR_ERR", "ATM_PAR_ERR", "SPF_ECC_ERR"
         ]
         self._errors_descriptions = {
@@ -296,29 +297,29 @@ class BlockPIE(Block):
         }
 
 BANKS = [
-    BlockLS, 
-    BlockIF, 
-    BlockL2, 
-    BlockDE, 
-    BlockRAZ, 
-    BlockEX, 
-    BlockFP, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockL3, 
-    BlockUMC, 
-    BlockUMC, 
-    BlockReserved, 
-    BlockReserved, 
-    BlockPB, 
-    BlockCS, 
-    BlockCS, 
-    BlockPIE, 
+    BlockLS,
+    BlockIF,
+    BlockL2,
+    BlockDE,
+    BlockRAZ,
+    BlockEX,
+    BlockFP,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockL3,
+    BlockUMC,
+    BlockUMC,
+    BlockReserved,
+    BlockReserved,
+    BlockPB,
+    BlockCS,
+    BlockCS,
+    BlockPIE,
 ]
 
 
@@ -333,6 +334,3 @@ if __name__ == "__main__":
     print("Bank: {}".format(bank))
     error = bank.decode_error(status_code)
     print("Error: {}".format(error))
-
-
-
